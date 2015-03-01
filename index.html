@@ -1,0 +1,1134 @@
+<html><head>
+<meta charset='utf-8'>
+	<link rel='stylesheet' id='jquerymobile-css' type='text/css' media='all'   href="jqmobile/jquery.mobile-1.4.5.min.css"/>  
+	<script src="js/jquery-2.1.3.min.js"></script>
+	<script src="jqmobile/jquery.mobile-1.4.5.min.js"></script>
+
+	<script type="text/javascript"  src="cordova.js"></script> 
+	<script src="js/main.js"></script>
+<!-- script  -->
+<script>
+var db;
+var current_enc_page;
+var current_enc;
+var form_refresh = 0;
+var ultimate_page = 0;
+var desktop = 1;
+</script>
+<script>
+if(localStorage.getItem("db_version") == null){
+	localStorage.setItem("db_version",7000);
+}
+
+if(desktop == 0){
+	document.addEventListener("deviceready", onDeviceReady, false);
+} else {
+	$(function(){ onDeviceReady(); });
+}
+
+function onDeviceReady() {
+	//$.mobile.page.prototype.options.keepNative = "select, input, textarea";
+	$("#espere").hide();
+	$("#espereload").hide();
+	$("#div_db_version").html( localStorage.getItem("db_version") );
+	if(localStorage.getItem("rol") == "supervisor"){
+		 $("#menusupervisor").show(); 
+		 localStorage.setItem("force_validation",0);
+	} else {
+		$("#menusupervisor").hide();  
+		 localStorage.setItem("force_validation",1);
+	}
+			draw_cards();
+			suma = 0;
+			orden = [];
+	$(document).on('pagecontainershow', function(e, ui) {
+		pageId = $('body').pagecontainer('getActivePage').prop('id');
+		if(pageId == "jqm-home"){
+			draw_cards();
+			suma = 0;
+			orden = [];
+		}
+		if(pageId == "results"){
+			process_results();
+		}
+	});
+	/*$(document).on( "pagebeforechange", function( event ) { 
+		//$.mobile.loading("show");
+	});*/
+	$("#loadbox").popup();
+	$("#purchase").popup();
+	create_panels();
+	$( "body>[data-role='panel']" ).panel();
+	//$( "#encuesta1" ).on( "swipeleft", swipeleftHandler );
+ 	//$( "#encuesta1" ).on( "swiperight", swiperightHandler );
+	login_status = localStorage.getItem("login_status");	
+	if((login_status == null) || (login_status == 0)){
+		changepage("#login");
+	}
+	if(desktop == 0){
+		/*db = window.sqlitePlugin.openDatabase("Database", "1.0", "Demo", -1);
+		if(localStorage.getItem("localdata") == null){
+			create_tables_data();
+		} else {
+			if(localStorage.getItem("localdata") < 3){
+				create_tables_data();
+			}
+		}*/
+	}
+}
+
+function nextpage_encuesta( i ){
+	var tmpflagp = true;
+	if(i == (nivelespage_start + 1)){
+		if(validate_niveles() == false){
+			return false;
+		}
+	}
+
+	if(validate_pages() == false){
+		return false;
+	}
+
+	if(localStorage.getItem("force_validation")==1){
+		if( ((i-1) != 3) && ((i-1) != 26) ){
+			$("#encuesta" + (i - 1)).find(' input:not([type=hidden],[type=checkbox]) ' ).each(function () {
+				if(tmpflagp == true){
+
+					if( $(this).is(":visible") ){
+						if(  ($(this).attr("id") == "78000999999") || 
+							 ($(this).attr("id") == "00001902") ||
+							 ($(this).attr("id") == "00001900") )
+						{
+							//ignore
+						} else {
+							if($(this).attr("type") == "radio"){
+								if ( $(  "input[name=" + $(this).attr("name") + "]:checked"  ).val() === undefined ) {
+									alert("Debe completar todas las preguntas.");
+									tmpflagp = false;
+								}
+							} else {
+								if (  $(this).val() == "" ) {
+									alert("Debe completar todas las preguntas.");
+									tmpflagp = false;
+								}
+							}
+		
+						}
+					}
+				}
+			});
+		}
+	}
+
+	if(tmpflagp == false)return false;
+
+	current_enc_page = i;
+	if( i > ultimate_page )ultimate_page = i;
+	save_encuesta();
+	changepage("#encuesta" + i);	
+
+	return false;
+}
+
+
+
+//-------------- LOGIN ---------------------------------------------
+
+function confirm_login(){
+	sys_username = "admin";
+	sys_password = "1234";
+	sys_supervisor_name = "supervisor";
+	sys_supervisor_pass = "supervisor";
+
+	tmp_u = $("#username").val();
+	tmp_p = $("#password").val();
+	if((tmp_u == sys_username ) && (tmp_p == sys_password)){
+		localStorage.setItem("login_status",1);
+		localStorage.setItem("rol","encuestador");
+		localStorage.setItem("force_validation",1);
+		changepage("#jqm-home");
+		$("#menusupervisor").hide();
+	} else if((tmp_u == sys_supervisor_name ) && (tmp_p == sys_supervisor_pass )){
+		localStorage.setItem("login_status",1);
+		localStorage.setItem("rol","supervisor");
+		localStorage.setItem("force_validation",0);
+		changepage("#jqm-home");
+		$("#menusupervisor").show();
+
+	} else {
+		$("#login_error").html("Usuario y/o Contraseña incorrectos.");
+	}
+}
+
+function logout(){
+	localStorage.setItem("login_status",0);
+	localStorage.setItem("rol",0);
+	changepage("#login");
+	return false;
+}
+
+//-------------UTILS ---------------------------------
+function getDateTime() {
+    var now     = new Date(); 
+    var year    = now.getFullYear();
+    var month   = now.getMonth()+1; 
+    var day     = now.getDate();
+    var hour    = now.getHours();
+    var minute  = now.getMinutes();
+    var second  = now.getSeconds(); 
+    if(month.toString().length == 1) {
+        var month = '0'+month;
+    }
+    if(day.toString().length == 1) {
+        var day = '0'+day;
+    }   
+    if(hour.toString().length == 1) {
+        var hour = '0'+hour;
+    }
+    if(minute.toString().length == 1) {
+        var minute = '0'+minute;
+    }
+    if(second.toString().length == 1) {
+        var second = '0'+second;
+    }   
+    var dateTime = year+'/'+month+'/'+day+' '+hour+':'+minute+':'+second;   
+    return dateTime;
+}
+
+function daysInMonth(iMonth, iYear)
+{
+    return 32 - new Date(iYear, iMonth, 32).getDate();
+}
+
+function myround(number, decimals) { return +(Math.round(number + "e+" + decimals) + "e-" + decimals) };
+
+function mygetdate(){
+	var today = new Date();
+	var dd = today.getDate();
+	var mm = today.getMonth()+1; //January is 0!
+	var yyyy = today.getFullYear();
+	if(dd<10) {
+		dd='0'+dd
+	} 
+	if(mm<10) {
+		mm='0'+mm
+	} 
+	today = dd + '/' + mm + '/' + yyyy;
+	return today;
+}
+
+function fsumar(id){
+	$("#" + id).val( parseInt($("#" + id).val()) + 1 );
+	return false;
+}
+function frestar(id){
+	tmp = parseInt($("#" + id).val()) - 1;
+	if(tmp < 0) tmp = 0;
+	$("#" + id).val( tmp );
+	return false;
+}
+
+function changepage(id){
+	$(':mobile-pagecontainer').pagecontainer('change', id,{transition:"none"} );
+	//$.mobile.pageContainer.pagecontainer("change",id,{transition:"none"}  );
+	//$("body").pagecontainer("change",id,{transition:"none"}  );
+	//$(id).pagecontainer( "change" ,{transition:"none"});
+}
+
+function makeoptions(tmp){
+	html = "";
+	len = tmp.length;
+	for( i = 0; i < len ; i++ ){
+		html += " <option value='" + tmp[i] + "'>" + tmp[i] + "</option>";
+	}
+	return html;
+}
+
+function int(id){	
+	return ( parseInt($("#" + id).val()) || 0);
+}
+
+
+function freeze_msg(msg){
+	$("#popmsg").html(msg);
+}
+
+function freeze_open(){
+	$("#popmsg").html("Procesando datos...");
+	$("#loadbox").popup("open");
+}
+
+function freeze_close(){
+	$("#loadbox").popup("close");
+}
+
+function force_select_option(id,option){
+
+		if($("#" + id + " option[value='" + option + "']").length > 0){
+		
+		}else {
+			if(id != "00000101"){
+				$("#" + id).html("<option value='" + option + "'>" + option + "</option>");
+			}
+			//$("#" + id).selectmenu("refresh");
+		}
+}
+
+function shuffle(array) {
+  var currentIndex = array.length, temporaryValue, randomIndex ;
+
+  // While there remain elements to shuffle...
+  while (0 !== currentIndex) {
+
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex -= 1;
+
+    // And swap it with the current element.
+    temporaryValue = array[currentIndex];
+    array[currentIndex] = array[randomIndex];
+    array[randomIndex] = temporaryValue;
+  }
+
+  return array;
+}
+//----- THIS APP UTILS ----------------------------------
+
+
+function swipeleftHandler( event ){
+	if(current_enc_page > 0){
+		nextpage_encuesta(current_enc_page - 1);
+	}
+}
+
+function swiperightHandler( event ){
+	if(current_enc_page > 0){
+		nextpage_encuesta(current_enc_page + 1);
+	}
+}	
+
+function create_id(){
+	tmp = localStorage.getItem("list_ids");
+	if(tmp == null){
+		list_ids = [];
+	} else {
+		list_ids = JSON.parse(tmp);
+	}
+	tmpid = Math.floor((Math.random() * 100000000) );
+	list_ids.push(tmpid);
+	localStorage.setItem("list_ids", JSON.stringify(list_ids) );
+	return tmpid;
+}
+
+function delete_obj(id){
+	var tmpidm = id;
+	list_ids = JSON.parse(localStorage.getItem("list_ids"));
+	index = list_ids.indexOf(id);
+	if (index > -1) {
+		list_ids.splice(index, 1);
+	}
+	localStorage.setItem("list_ids",JSON.stringify(list_ids));
+	localStorage.removeItem("encobj" + id);
+	if(desktop == 0){
+		db.transaction(function(tx) {
+			//sql = "DELETE FROM encache WHERE id = " + tmpidm;
+			//tx.executeSql(sql, [], function(tx, res) {	});
+		});
+	}
+}
+
+function get_obj(id){
+	var obj;
+	obj = JSON.parse(localStorage.getItem("encobj" + id));
+	if(desktop == 0){
+		db.transaction(function(tx) {
+			/*sql = "SELECT * FROM encache WHERE id = " + obj.id;
+			tx.executeSql(sql, [], function(tx, res) {
+				//obj.formdata = res.rows.item(0).contenido;
+			});*/
+		});
+	}
+	return obj;
+}
+
+function get_small_obj(id){
+	return JSON.parse(localStorage.getItem("encobj" + id));
+}
+
+function save_obj(id,obj){
+	var tmpidm = obj;
+	localStorage.setItem("encobj" + id,JSON.stringify(obj)  );
+	if(desktop == 0){
+		db.transaction(function(tx) {
+			//tx.executeSql( "UPDATE encache SET contenido = ? WHERE id = " + obj.id , [ obj.formdata ], function(tx, res) { });
+		});
+	}
+}
+
+function init_home(){
+	current_page = 0;
+	$( "#botonvaciar" ).hide();
+	changepage("#jqm-home");
+	return false;
+}
+
+function draw_cards(){
+	var torden = [0,1,2,3,4,5,6,7,8,9];
+	neworden = shuffle(torden);
+	html = "";
+	for(i = 0; i < neworden.length ; i++){
+		tmpstyle = "";
+		if(i == 0 || i == 7) html += '<div style="float:left;height:31%;width:15%"></div>';
+		html += '<div class="boxframe"><div id="box' + neworden[i] + '" class="fcolor' + neworden[i] + '" onclick="javascript:fade_box(' + neworden[i] + ')" '+ tmpstyle  + '></div></div>';
+	}
+	$("#box_container").html(html);
+}
+
+function process_results(){
+		C_CREMA = 0;
+		C_AZUL = 1;
+		C_VERDE = 2;
+		C_ROJO = 3;
+		C_AMARILLO = 4;
+		C_MORADO = 5;
+		C_MARRON = 6;
+		C_NEGRO = 7;
+		C_GRIS = 8;
+		C_BLANCO = 9;
+		c_elegidos = orden;
+
+		$("#results .rcontent").html('<div class="ui-body ui-body-a ui-corner-all" style="margin-top:10px" data-theme="b"><b>Diagnostico:</b></div>');	
+
+		//buscar el codigo resultado del (primer #)(ultimo #) #####################################3
+		buscar = '+' + c_elegidos[0] + '-' + c_elegidos[7];
+		row = fetch_buscar(buscar);
+		//$("#r_problema").html(row); // PROBLEMA ACTUAL
+		if(typeof row !== "undefined")$("#results .rcontent").append('<div class="ui-body ui-body-a ui-corner-all" style="margin-top:10px">' + row + '</div>');				
+				
+
+		//buscar el codigo resultado del (primer #)(segundo #) #####################################3
+		buscar = '+' + c_elegidos[0] + '+' + c_elegidos[1];
+		row = fetch_buscar(buscar);
+		//$("#r_orientado").html(row); // ORIENTADO
+		if(typeof row !== "undefined")$("#results .rcontent").append('<div class="ui-body ui-body-a ui-corner-all" style="margin-top:10px">' + row + '</div>');				
+
+		//buscar el codigo resultado del (tercero #)(cuarto #) #####################################3
+		buscar = 'x' + c_elegidos[2] + 'x' + c_elegidos[3];
+		row = fetch_buscar(buscar);
+		//$("#r_presente").html(row); // SITUACION PRESENTE
+		if(typeof row !== "undefined")$("#results .rcontent").append('<div class="ui-body ui-body-a ui-corner-all" style="margin-top:10px">' + row + '</div>');				
+
+		//buscar el codigo resultado del (quinto #)(sexto #) #####################################3
+		buscar = '=' + c_elegidos[4] + '=' + c_elegidos[5];
+		row = fetch_buscar(buscar);
+		//$("#r_coartada").html(row);// CARACTERISTICAS COARTADAS
+		if(typeof row !== "undefined")$("#results .rcontent").append('<div class="ui-body ui-body-a ui-corner-all" style="margin-top:10px">' + row + '</div>');				
+	
+		//buscar el codigo resultado del (septimo #)(ocho #) #####################################3
+		buscar = '-' + c_elegidos[6] + '-' + c_elegidos[7];
+		row = fetch_buscar(buscar);;
+		//$("#r_tension").html(row); // FOCO DE TENSION
+		if(typeof row !== "undefined")$("#results .rcontent").append('<div class="ui-body ui-body-a ui-corner-all" style="margin-top:10px">' + row + '</div>');				
+		
+		//buscar el codigo resultado del (primer #)  ##############################################3
+		buscar = c_elegidos[0];
+		row = fetch_buscar(buscar);
+		//$("#r_general").html(row); // CARACTERISTICA GENERAL
+		if(typeof row !== "undefined")$("#results .rcontent").append('<div class="ui-body ui-body-a ui-corner-all" style="margin-top:10px">' + row + '</div>');				
+	
+		entorno = '';
+		if(color_match([C_BLANCO],[8,9],c_elegidos)){
+			entorno += "Reprime su conducta.";
+		} else if(color_match([C_BLANCO],[6,7],c_elegidos)){
+			entorno  += "Controla su conducta adecuadamente.";
+		}else if(color_match([C_BLANCO],[4,5],c_elegidos)){
+			entorno  += "Situaci&oacute;n actual lo impulsa al descontrol.";
+		}else if(color_match([C_BLANCO],[2,3],c_elegidos)){
+			entorno += "Se descontrola f&aacute;cilmente en su conducta.";
+		}else if(color_match([C_BLANCO],[0,1],c_elegidos)){
+			entorno += "Tendencia al descontrol de la conducta.";
+		}	
+
+		if(color_match([C_BLANCO],[8,9],c_elegidos)){
+			entorno +="No encuentra  criticas o no le interesa opinar.";
+		} else if(color_match([C_BLANCO],[6,7],c_elegidos)){
+			entorno += "Dificultad para expresar criticas u opiniones.";
+		}else if(color_match([C_BLANCO],[4,5],c_elegidos)){
+			entorno += "Expresa opiniones y  criticas  con moderaci&oacute;n.";
+		}else if(color_match([C_BLANCO],[2,3],c_elegidos)){
+			entorno += "Expresa opiniones   y criticas  abiertamente.";
+		}else if(color_match([C_BLANCO],[0,1],c_elegidos)){
+			entorno += "Impulsado  a  expresar opiniones  o cr&iacute;ticas con vehemencia.";
+		}	
+
+		if(color_match([C_BLANCO,C_GRIS],[8,9],c_elegidos)){
+			entorno += "No encuentra criticas , no expresa nada  se inhibe.";
+		} else if(color_match([C_BLANCO,C_GRIS],[6,7],c_elegidos)){
+			entorno += "Dificultad para expresar criticas u opiniones lo inhiben de actuar o  hablar.";
+		}else if(color_match([C_BLANCO,C_GRIS],[4,5],c_elegidos)){
+			entorno += "Expresa opiniones y  criticas  pero situación problema lo hace perder el control.";
+		}else if(color_match([C_BLANCO,C_GRIS],[2,3],c_elegidos)){
+			entorno += "Expresa opiniones   y criticas  abiertamente, a veces descontroladamente.";
+		}else if(color_match([C_BLANCO,C_GRIS],[0,1],c_elegidos)){
+			entorno += "Impulsado  a  expresar opiniones  o cr&iacute;ticas con vehemencia se descontrola en su conducta.";
+		}
+
+		if(color_match([C_NEGRO,C_GRIS],[8,9],c_elegidos)){
+			entorno += "Se ajusta  y adapta adecuadamente  a situaciones  y entornos.";
+		} else if(color_match([C_NEGRO,C_GRIS],[6,7],c_elegidos)){
+			entorno += "Se  adecua  moderadamente  a las situaciones aunque opine en contra.";
+		}else if(color_match([C_NEGRO,C_GRIS],[4,5],c_elegidos)){
+			entorno += "Expresa opiniones y  criticas  Radicalmente con moderaci&oacute;n.";
+		}else if(color_match([C_NEGRO,C_GRIS],[2,3],c_elegidos)){
+			entorno += "Radicalmente Expresa opiniones   y criticas  abiertamente.";
+		}else if(color_match([C_NEGRO,C_GRIS],[0,1],c_elegidos)){
+			entorno += "Radicalmente impulsado  a  expresar opiniones  o cr&iacute;ticas con vehemencia.";
+		}		
+
+		if(color_match([C_NEGRO,C_BLANCO],[8,9],c_elegidos)){
+			entorno += "Ajuste y control  adaptativo.";
+		} else if(color_match([C_NEGRO,C_BLANCO],[6,7],c_elegidos)){
+			entorno += "Controla su ideas negativas  aunque le genran cierto descontrol o ansiedad.";
+		}else if(color_match([C_NEGRO,C_BLANCO],[4,5],c_elegidos)){
+			entorno += "Pesimismo  de percepci&oacute;n  lo alteran y piensa en descontrol.";
+		}else if(color_match([C_NEGRO,C_BLANCO],[2,3],c_elegidos)){
+			entorno += "Mantiene control d&eacute;bil  por su radicalismo.";
+		}else if(color_match([C_NEGRO,C_BLANCO],[0,1],c_elegidos)){
+			entorno += "Su  radicalismo lo descontrolan abiertamente.";
+		}		
+		
+		if(color_match([C_NEGRO,C_GRIS,C_BLANCO],[7,8,9],c_elegidos)){
+			entorno += "Adecuado ajusto al entorno.";
+		} else if(color_match([C_NEGRO,C_GRIS,C_BLANCO],[4,5,6],c_elegidos)){
+			entorno += "Ajuste Ansioso al entorno.";
+		}else if(color_match([C_NEGRO,C_GRIS,C_BLANCO],[0,1,2,3],c_elegidos)){
+			entorno += "Necesidad de atención urgente.";
+		}
+
+		//$("#r_entorno").html(entorno);
+		if(entorno != "")$("#results .rcontent").append('<div class="ui-body ui-body-a ui-corner-all" style="margin-top:10px">' + entorno + '</div>');				
+
+}
+
+function fetch_buscar(c){
+	codigos = {
+ "+0-0": "Reserva cautelosa, temor de no recibir lo que es debido.",
+ "+0-1": "Tensiones y ansiedad por insatisfacción desasosegada, sin compromiso evidente.",
+ "+0-2": "Tensión originada por causa de fracaso de establecer acuerdos o logros por el esfuerzo.",
+ "+0-3": "Intolerancia por actividad agotadora, agitación irritación y angustia, no participación.",
+ "+0-4": "Decepción de esperanza irrealizadas, ansiedad, voluble y depresivo, reservado.",
+ "+0-5": "Protección por ser confiado, actitud critica y distante.",
+ "+0-6": "Deseo de ser respetado, reprime su sociabilidad, rechaza compromisos y participar.",
+ "+0-7": "Cree su independencia este demasiado restringida, no quiere ser molestado.",
+ "+1-1": "Actitud ambivalente que varia entre felicidad relajada e insatisfacción desosegada.",
+ "+1-0": "Necesita estabilidad y apacibles situaciones para librarse de preocupaciones.",
+ "+1-2": "Tensiones por tratar de manipular situaciones le agotan busca huir de problemas.",
+ "+1-3": "Vitalidad agotada, produce intolerancia,agitación y angustia necesita paz.",
+ "+1-4": "Decepción por esperanzas irrealizadas busca asociación apacible y paz. aprecio.",
+ "+1-5": "Protección por ser demasiado confiado,mal entendido y explotado, busca paz.",
+ "+1-6": "Quiere ser apreciado, busca relación intima, apacible y de estima.",
+ "+1-7": "No desea estar en diferencias de opinión,discordias y discusiones, quiere paz.",
+ "+2-2": "Actitud ambivalentes que varia entre autor realce y deseo de escapar de presiones.",
+ "+2-0": "Tiene miedo le impidan las cosas que quiere, exige reconocimientos y derechos.",
+ "+2-1": "Ansiedad por insatisfacción, o por exigencias trata de escapar mostrando seguridad.",
+ "+2-3": "Vitalidad agotada produce intolerancia, impotencia, frustración,angustia, irritación.",
+ "+2-4": "Decepción y temor de alcanzar objetivos,ansiedad, reconocimiento, valor posición.",
+ "+2-5": "Busca fortalecer su posición, sentido critico, juicio científico, quiere cosas claras.",
+ "+2-6": "Necesita ser considerado y respetado, autoestima alta, se fija normas y metas altas.",
+ "+2-7": "Se opone a influencias externas, toma sus propias decisiones,hace planes y posiciones.",
+ "+3-3": "Actitud ambivalente de salirse con la suya y que lo dejen en paz.",
+ "+3-0": "Temor a que le nieguen lo que quiere lo hace representar papeles febriles.",
+ "+3-1": "Ansiedad e insatisfacción desahogada, trata de escapar con el éxito personal u otras.",
+ "+3-2": "Tensión por manipular los factores fuera de sus posibilidades, poco control, ira.",
+ "+3-4": "Decepción por no poder nuevos objetivos, necesita unión con otros, reacción activa.",
+ "+3-5": "Quiere moverse con libertad pero es coartado pòr por sus bases racionales,definidas.",
+ "+3-6": "Se deleita en la acción, quiere ser respetado y apreciado por sus realizaciones.",
+ "+3-7": "Lucha contra restricciones insiste desarrollarse con su propio esfuerzo.",
+ "+4-4": "Actitud ambivalente ante deseo optimista de realizarse y pesimismo sombrío.",
+ "+4-0": "El temor a que le impidan lo que quiere lo llevan a actividades ilusorias, sin sentido.",
+ "+4-1": "Ansiedad por insatisfacción por irrealizadas,tensión, condiciones y asociación para paz.",
+ "+4-2": "Tensión por manipula factores, culpa a otros, compulsión, confirmación de capacidad.",
+ "+4-3": "Agitación impredecible,irritación, agotamiento intolerancia, ansiedad, escape, amenazas.",
+ "+4-5": "Critico con profundidad de las cosas, busca aclares y explicaciones,orden y método de trabajo.",
+ "+4-6": "Se siente insuficientemente valorado, busca demostrar su valer en diferentes condiciones.",
+ "+4-7": "Se siente coartado e impedido de progresar, busca una solución que le aparte de limitaciones.",
+ "+5-5": "Ambivalencia entre deseo de compañía sin exigencia y desprecio por los que si le dan comprensión.",
+ "+5-0": "Temor a lograr lo que quiere despliega atracción personal para facilitarle las cosas.",
+ "+5-1": "Ansiedad por insatisfacción de circunstancias o sentimentales busca atmósferas tranquilas.",
+ "+5-2": "Tensión por manipular factores, busca sustituir por un mundo ideal o fantasioso por escape.",
+ "+5-3": "Vitalidad agotada produce intolerancia trata de buscar mundo ilusorio para escapar.",
+ "+5-4": "Decepción por nuevos objetivos, busca asociación intima y comprensión huye a un mundo sustituto.",
+ "+5-6": "Se impresiona con la individualidad, originalidad, creatividad.",
+ "+5-7": "Intenta evitar criticas y restricciones sobre su libertad empleo de su atractivo personal.",
+ "+6-6": "Ambivalencia entre seguridad satisfecha y deseo de reconocimiento.",
+ "+6-0": "Temor a restricciones le impulsan a libertad busca estabilidad y ambientes relajados y laxos.",
+ "+6-1": "Ansiedad por irrealizaciones busca seguridad libre de conflictos, exigencias de recuperación.",
+ "+6-2": "Tensión por tratar de manipular,inadecuación personal,trata de refugiarse en ambiente estable.",
+ "+6-3": "Su vitalidad agotada le produce intolerancia trata de huir a ambientes tranquilos y laxos.",
+ "+6-4": "Decepción ante nuevos objetivos, generan ansiedad,falta de asociación intima,huye a otros medios.",
+ "+6-5": "Desea protegerse contra criticas y conflictos recuperar posición, pero muy difícil de complacerse.",
+ "+6-7": "Busca seguridad y posición social en la que no sea molestado ni le impongan cosas.",
+ "+7-7": "Actitud ambivalente individualismo normal y desprecio por el punto de vista de los otros.",
+ "+7-0": "Temor a que se le impida lograr cosas, impulsa tipos de experiencias,desprecio destructivo, futilidad.",
+ "+7-1": "Ansiedad por irrealizaciones,falta de comprensión de los demás impulsan desdeño y desafió.",
+ "+7-2": "Tensión por manipular las cosas, sensación de inadecuación, hiper reacción oposición obstinada.",
+ "+7-3": "Vitalidad agotada produce irritación, intolerancia, indignación resentimiento, siente se victima.",
+ "+7-4": "Decepción por nuevos objetivos,ansiedad, vacío auto desprecio, actitudes obstinadas y desafiadoras.",
+ "+7-5": "Capacidad para examinar con juicio critico, actitud severa, desaprobación, desprecio a los demás.",
+ "+7-6": "Necesidad de estima para sobresalir lo ponen imperativo reacciona para ser centro de atracción.",
+ "x0": "Compulsión son las características del grupo, sobre protección, egocentrismo, engreimiento.",
+ "x0x1": "Es relativamente inactivo,conflictos le afectan tranquilidad, poco amistosos, ensimismado.",
+ "x0x2": "La situación difícil le impide llegar a sus objetivos, encuentra necesario oculta y mostrar.",
+ "x0x3": "Tiene dificultades para progresar,oculta impulsividad, acciones con problemas, irritable.",
+ "x0x4": "Falta de realización de sus esperanzas y recuperación le provocan tensión.",
+ "x0x5": "Temor al desaire y extrema cautela de sus aproximaciones le hacen difícil la intimidad e identificación.",
+ "x0x6": "Incapaz de esforzarse lo suficiente para lograr objetivos, desea menos problemas.",
+ "x0x7": "Tensión debido a exigencias de la situación presente, trata de deshacerse de las cosas que le restringen.",
+ "x1": "Actúa con calma, y con un mínimo de trastorno para manipular,sentirse laxo para llevarse bien.",
+ "x1x0": "Sensible y comprensivo pero bajo cierta tirantes necesita amistades mas intimas.",
+ "x1x2": "Actúa de un modo ordenado y metódico Autónomo,busca comprensión empática y aprobación.",
+ "x1x3": "Trabaja bien en colaboración con los demás pero no es líder, necesita comprensión sin discordias.",
+ "x1x4": "Complaciente adaptable, se siente incapaz en estar vinculado a alguien de confianza.",
+ "x1x5": "Sensible necesita entornos estéticos o pareja sensible con quien pueda compartir intimidad.",
+ "x1x6": "Evita esfuerzos excesivos,necesita seguridad y apacibilidad de amistad segura.",
+ "x1x7": "Necesita amigos afectuosos pero es intolerante con los que le dan consideraciones.",
+ "x2": "Persistente exige lo que cree que es debido y se esfuerza por mantener posición intacta.",
+ "x2x0": "Defensivo cree que su posición esta amenazada,inadecuada, a seguir proyectos a pesar de su ansiedad.",
+ "x2x1": "Ordenado, metódico y autónomo. Necesita el respeto, el reconocimiento y comprensión de sus íntimos.",
+ "x2x3": "Autoritario opera en un puesto de autoridad, busca progreso a pesar de la oposición.",
+ "x2x4": "Trata de mejorar su posición y prestigio, insatisfecho con las circunstancias, necesita estima.",
+ "x2x5": "Lucha por mejorar su imagen a los ojos de los demás y conseguir estén de acuerdo con el.",
+ "x2x6": "Trabaja para base firme, para futuro seguro, sin problemas y obtener respeto y reconocimiento.",
+ "x2x7": "Persigue sus objetivos y su propio interés por una determinación obstinada, rechaza componendas.",
+ "x3": "Es activo pero juzga que hace progresos limitados y que no es recompensado como debe ser.",
+ "x3x0": "Impulsivo e irritable, no mide consecuencias y lo llevan a tensión y conflictos.",
+ "x3x1": "Trabaja bien en equipo, necesita vida de comprensión y sin discordias.",
+ "x3x2": "Desarrollo de iniciativas, emprende proyectos superando obstáculos, ejerce autoridad y control.",
+ "x3x4": "Ligero y desenvuelto, no acepta imprevistos sino le crean inconstancia y superficialidad.",
+ "x3x5": "Participa en todo lo que sea emociones y excitación, se excita con facilidad.",
+ "x3x6": "No quiere comunicarse con los demás, no hace esfuerzos prefiere comodidad y seguridad antes que recompensas.",
+ "x3x7": "Se siente obstaculizado, de no conseguir lo que considera fundamental.",
+ "x4": "Es atraído por todo lo nuevo la aventura lo moderno lo misterioso, se aburre con lo tradicional o rutinario.",
+ "x4x0": "Busca solución a sus problemas y no encuentra el camino adecuado para los mismos teniendo ansiedad.",
+ "x4x1": "El ambiente le impacta y lo conmueve, busca relaciones amistosas y apoyo amical.",
+ "x4x2": "Espera tener posición y prestigio de modo que pueda compensarse con lo que se ha sacrificado.",
+ "x4x3": "Activo desenvuelto inquieto, se frustra con lo lento, busca lo previsto y persevera en sus objetivos concretos.",
+ "x4x5": "Imaginativo y sensible busca una salida a sus cualidades busca crear y busca compañía ideal sensible, entusiasmo.",
+ "x4x6": "Inseguro busca enraizarse estabilizarse, sentimental y concretamente, busca ambientes de tranquilidad.",
+ "x4x7": "La situación presente se torna peligrosa,busca solución imprevisto en sus decisiones, terco rechaza consejo.",
+ "x5": "Busca expresar su necesidad de identificación en un atmósfera sensible y compañía que le de protección.",
+ "x5x0": "Busca unión intima comprensiva en atmósfera personal, intima y compartida ponerse a salvo de conflictos.",
+ "x5x1": "Busca compartir unión intima y comprensiva en atmósfera de paz, estética y ternura.",
+ "x5x2": "Lucha para mejorar su imagen y conseguir que lo acepten y estén de acuerdo con sus necesidades.",
+ "x5x3": "Participa con facilidad en todo lo que lo excite, emociones o estimule.",
+ "x5x4": "Imaginativo y sensible busca una salida,le gusta lo insólito la aventura,lo misterioso.",
+ "x5x6": "Sensual se inclina por la satisfacción de sus sentidos rechaza lo vulgar y ordinario.",
+ "x5x7": "Necesita e insiste en unión intima comprensiva, de manera compulsiva para identificarse.",
+ "x6": "Se siente ansioso e inseguro, necesita seguridad y ambiente afectuoso para el goce, no se esfuerza.",
+ "x6x0": "Es incapaz de esforzarse lo suficiente para logra sus objetivos, rezagado busca seguridad.",
+ "x6x1": "Evita esfuerzos excesivos, necesita enraizarse en seguridad,mal físicamente, necesita trato.",
+ "x6x2": "Tiene dificultad para hacer frente a las dificultades,considera mucho esfuerzo, soluciones.",
+ "x6x3": "Progresa con dificultad, no se esfuerza busca condiciones confortables para no tener molestias.",
+ "x6x4": "Inseguro sin enraizarse, busca estabilizarse, y también sentimentalmente pero no se esfuerza.",
+ "x6x5": "Sensual, se inclina por la satisfacción fácil y los sentidos también rechaza el mal gusto, lo vulgar y ordinario.",
+ "x6x7": "Una enfermedad física, una sobretensión, aflicción sentimental le afectan, baja autoestima, busca paz.",
+ "x7": "Conflictos y problemas de todo tipo necesitan compensación.",
+ "x7x0": "Insatisfecho,necesidad de escapar de compromisos y problemas, búsqueda de solución.",
+ "x7x1": "Necesita paz tranquilidad, deseo de intimidad fidelidad, consideración afecto, sino se cierra en depresión.",
+ "x7x2": "Sus exigencias aun mínimas son imperativas se aferra con seguridad y sin retroceder a lo que busca.",
+ "x7x3": "Se siente obstaculizado en deseos y necesidades que considera fundamental.",
+ "x7x4": "La situación presente contiene elementos críticos y peligrosos, necesidad imperiosa de solución.",
+ "x7x5": "Necesita e insiste en unión intima o al menos comprensiva o método de satisfacer compulsión por ello.",
+ "x7x6": "Enfermedad física, sobretensión, aflicción sentimental lo han golpeado, necesita recuperase.",
+ "+0": "Renuente a participar agotada en soportar demasiado desea protección y desligarse de todo.",
+ "+0+1": "Exhausto debido a pleitos y discusiones desea estar cubierto, necesita condiciones apacibles y ambiente tranquilo.",
+ "+0+2": "Cree que las circunstancias presentes son hostiles desea estar cubierta ni quiere ninguna oposición para sus planes.",
+ "+0+3": "Tiene exigencias muy grandes sobre la vida, racionaliza quiere impresionar, mostrar logros y encubrir deficiencias.",
+ "+0+4": "Se liberan deseos que generan situaciones insatisfactorias y cargas, busca una salida.",
+ "+0+5": "Relaciones platónicas, ternura atracción, cauta para sus sentimientos se cuida de exteriorizar sus sentimientos y deseos.",
+ "+0+6": "Desea protegerse de todo lo que pueda agotarlo busca una vida segura y llena de bienestar sin problemas o perturbación.",
+ "+0+7": "Cree que ha sido tratado de un modo injusto, inmerecido, traicionado descontento y rebelión por sentir afrentas.",
+ "+1": "Desea un estado de armonio de estado tranquilo, satisfacción serena, pertenencia y apoyo.",
+ "+1+0": "Necesita estar libre de tensiones paz tranquilidad satisfacción.",
+ "+1+2": "Necesita ambientes apacibles, libre de tensiones y desacuerdos, quiere dominar la situación, tacto para detalles.",
+ "+1+3": "Busca relaciones afectivas satisfactorias y armoniosas unión intima con sacrificio y confianza mutua.",
+ "+1+4": "Busca relación que le de felicidad, entusiasta positivo comprensión para los demás.",
+ "+1+5": "Ansia ternura y compartir unión delicada de sentimiento sensible, estético y de buen gusto.",
+ "+1+6": "Desea lugar apacible, sin problemas, seguridad apoyo teme el vacío y la soledad, desea bienestar físico.",
+ "+1+7": "Necesita urgente descanso, reposo, ser comprendido, ansiosos por la situación que es inaguantable, exigencias.",
+ "+2": "Quiere conseguir determinación constancia, pone voluntad, independencia, no quiere oposición si reconocimiento.",
+ "+2+0": "Quiere definir su propia personalidad, influir, sentir que no es apreciado, necesita cambiar apreciación desfavorable.",
+ "+2+1": "Quiere impresionar favorablemente, suspicaz se siente herido, susceptible necesita consideraciones.",
+ "+2+3": "Busca el éxito, quiere superar obstáculos, y oposición persigue objetivos con empeño e iniciativa no es dependiente.",
+ "+2+4": "Necesita el reconocimiento de los demás, ambiciosos quiere impresionar, ser admirado, llenar el vació entre los otros.",
+ "+2+5": "Quiere causar impresión favorable, visto especialmente astuto y táctico para alcanzar objetivos para reconocimiento.",
+ "+2+6": "Tiene la impresión que se le exige demasiado, esto lo hastía y cansa, es orgullosos y condescendiente, quiere seguridad.",
+ "+2+7": "Quiere demostrar a si mismo que puede, no muestra debilidad actúa con austeridad, firmeza autocrático y terco.",
+ "+3": " es una persona activa extrema vital, animada, conquistadora, conseguir éxitos y vivir aventuras.",
+ "+3+0": "Quiere apartar a todos los que le estorban para seguir sus impulsos, conducta impulsiva le hace correr riesgos.",
+ "+3+1": "Se orienta a la vida pletórica, búsqueda de relaciones satisfactorias locuacidad, razonamiento convencimiento.",
+ "+3+2": "Persigue sus objetivos con intensidad y se desvía de su meta, supera obstáculos, se expande para reconocimiento triunfo.",
+ "+3+4": "Busca el éxito e estimulo y vida plena, libertad sociable novedoso receptivo, seguro para no socavar su confianza.",
+ "+3+5": "Busca intensa excitación diversa índole, deben considerarlo interesante, atractivo, se cuida para lograr lo que quiere.",
+ "+3+6": "Desecha su ambición y prestigio, renuncia, prefiere tomar las cosas con calma, ansia de comodidad seguridad, satisfacción.",
+ "+3+7": "Quiere compensar lo que cree ha perdido, quiere librarse de todas las cosas que lo oprimen.",
+ "+4": "Busca cambio de situación que alivie su tensión, solución a nuevas situaciones posibilidad de realizar sus esperanzas.",
+ "+4+0": "Necesita escapatoria de de todo lo que lo oprime, se aferra esperanzas vagas e ilusorias.",
+ "+4+1": "Confía en lazos afectivos y amistades, ayuda a otros, cordial comprensivo receptivo.",
+ "+4+2": "Observador alerta agudo, busca vías de libertad y la oportunidad de sacar máximo provecho, busca reconocimiento.",
+ "+4+3": "Quieres ser más afectivo y tener influencia, desasosiego por búsqueda de deseos y esperanzas, ampliar campo de acción.",
+ "+4+5": "Muy imaginativo inclinado al fantaseo y soñar despierto, ansia aventura y emoción, desea ser admirado.",
+ "+4+6": "Esta desesperado y necesita alivio, quiere bienestar físico, seguridad sin problemas y oportunidad de recuperación.",
+ "+4+7": "Trata de escapar de problemas, tensiones y dificultades por desiciones precipitadas, obstinadas y desconsideradas.",
+ "+5": "Necesita sentirse identificado con alguien y desea ganar el apoyo, trato amable y amigable, sentimental romántico.",
+ "+5+0": "Ansía una compresión sensible y empática; quiere estar a salvo de discusiones, conflictos o tensiones agotadoras.",
+ "+5+1": "Desea ligarse tierna y empáticamente idealizada de armonía, necesidad imperiosa de ternura, afecto, sensible esteta.",
+ "+5+2": "Quiere causar buena impresión, como especial egocéntrico, maneja las cosas para tener influencia, estético original.",
+ "+5+3": "Acepta todo lo que de estimulación, excitación intensa, conquista, atractivo a los demás no deja se ponga en peligro.",
+ "+5+4": "Quiere emoción hechos interesantes, trato agradable, imaginativo en exceso, fantasea y soñar despierto, hacer querer.",
+ "+5+6": "Desea encontrar estimulación en ambientes de sensualidad.",
+ "+5+7": "Imperiosa necesidad de ligazón con alguien que le llene de sensualidad y no entre en conflicto con ella.",
+ "+6": "Busca liberarse de problemas y lograr un estado seguro de bienestar físico en la cual pueda relajarse.",
+ "+6+0": "Necesita con urgencia sosiego y reposo para librarse de conflictos, ansia seguridad, protegido sin problemas.",
+ "+6+1": "Quiere estar satisfecho de bienestar físico, sin conflictos necesita seguridad, no quiere soledad ni separación.",
+ "+6+2": "Se mantiene bajo severo control para no tener crisis o dificultades, necesita seguridad y tranquilidad para recuperar.",
+ "+6+3": "Se mueve por un poderos impulso hacia la sensualidad.",
+ "+6+4": "Juzga que realizar sus expectativas son pocas, entregado a una vida de bienestar sensual.",
+ "+6+5": "Busca la comodidad sensual la entrega a aficiones voluptuosas.",
+ "+6+7": "Se plantea objetivos irrealista ilusorios, decepcionado amargado quiere olvidar y recuperarse de problemas.",
+ "+7": "Considera que las circunstancias presentes son desfavorables, sobre impositivas se niega a recibir consejos.",
+ "+7+0": "Cree que la situación es desesperada rechaza lo desagradable, busca protección, molestias-depresión.",
+ "+7+1": "Sufre con los efectos de las cosas desagradables, rechazo exigencias quiere lo dejen en paz.",
+ "+7+2": "Se opone desconfiado a cualquier clase de restricciones, obstinado en su punto de vista, busca independencia.",
+ "+7+3": "Sufre de una contenida sobrestimulación que amenaza descargarse en abscesos de impulsividad apasionada.",
+ "+7+4": "Trata de escapar de sus problemas y tensiones por decisiones precipitadas, obstinadas y desconsideradas.",
+ "+7+5": "Exige que las ideas y los sentimientos armonicen emerjan y armonicen perfectamente.",
+ "+7+6": "Se plantea objetivos irrealistas, idealistas, ilusorios se ha decepcionado amargamente.",
+ "-0": "Dedicación impaciente- agitación, cree que la vida debe ofrecerle mas, paz solo si logra metas.",
+ "-0-1": "Insatisfacción desasosegada, incapaz de controlar y cambiar las cosas, irritable e impaciente.",
+ "-0-2": "Presión sin resolver, debilitando su tenacidad, sobrecargado y agotado, desorientado pero sigue firme.",
+ "-0-3": "Intento de resistir estimulación, irritabilidad impotente por agitación por logros no realizados.",
+ "-0-4": "Inseguridad aprensiva, tensiones por frustraciones y agitación, esperanzas irrealizadas.",
+ "-0-5": "Tensiones por sensibilidad suprimida, correspondencia controlada, se recrea con el buen gusto pero es critico.",
+ "-0-6": "Suprimido las exigencias orgánicas, situación desagradable, deseo insatisfecho, desea ser amado, exige estima.",
+ "-0-7": "Susceptibilidad acentuada, busca sentido a su vida, se resiente de restricciones, estar desligado, expectativa.",
+ "-1": "Rechaza ponerse laxo darse por vencido mantiene agotamiento y depresión bajo control relación insatisfactoria.",
+ "-1-0": "Muestra impaciencia y ansiedad tiende a estar deprimido falta de realización inquieta no controla la situación, apremio.",
+ "-1-2": "Excesiva tensión que arrolla, intento de superar dificultades, presión que origina tensión y discordia.",
+ "-1-3": "Agitación reprimida relaciones personales no satisfactorias, irritable, ira, neurosis, cardiopatías.",
+ "-1-4": "Decepciones sentimentales dan ansiedad y tensión, conflicto y crisis en relación, actitud fría de respuesta.",
+ "-1-5": "Tensión por falta de comprensión mutua, situación poco satisfactoria, impaciencia por falta de comprensión.",
+ "-1-6": "Insatisfacción sentimental, falta de aprecio la han llevado a una gran tensión, necesidad de comprensión, autocontrol.",
+ "-1-7": "Insatisfacción sentimental deseo de independencia, poca satisfacción imposibilitado de mejorar, no muestra afecto por ello.",
+ "-2": "Tensión que vence la resistencia de la voluntad, sobrecargado agotado.",
+ "-2-0": "Sobrecargado de presiones y tensión, envuelto en problemas sin resolver crean frustración y tensión, desorientado.",
+ "-2-1": "Insatisfacción sentimental, incapacidad para soportar oposición, tensión, frustración, quiere colaboración y escapar.",
+ "-2-3": "Intento de evitar estimulación crea conflictos, siente hostilidad, rechaza el ambiente hostil creído, rebelión impotente.",
+ "-2-4": "Conflicto entre la esperanza y necesidad por desengaño, decepción, irrealización, vacilación frustración.",
+ "-2-5": "Sensación de desprecio e incomprensión, posición desagradable, desanimado quiere huir de situación, humillado.",
+ "-2-6": "Excesivo autodominio al ganar estima y consideración de los demás, necesidad insatisfecha, exigencia, ineficaz estima.",
+ "-2-7": "Frustración derivada de restricciones inaceptables, busca independencia, deseo frustrado de libertad, presión.",
+ "-3": "Intento de resistir cualquier interpretación, agitación reprimida, irritabilidad, cardios, situación amenazadora, incomodo.",
+ "-3-0": "Resistir estimulación provocan agitación reprimida, impaciente errático, agotamiento por agitación, cardios, acosado.",
+ "-3-1": "Resistir estimulación y no relajarse agitación angustia, impaciente irritable y febril, no cordial, desarmonía.",
+ "-3-2": "Impotencia agitada e incapacidad de control, tensión espasmos musculares.",
+ "-3-4": "Tensión por frustración, agitación deseoso de causar buena impresión autodefensa poco realista, se siente victima.",
+ "-3-5": "Tensión a causa de fallar en seguridad y comprensión, no alcanza objetivos, empatía frustrada, experimentador.",
+ "-3-6": "Tensión por frustración nerviosa en el área de los sentimientos. Excesivo autocontrol. se siente poco apreciado.",
+ "-3-7": "Frustraciones por situación difícil, aprisionado, enojado y disgustado, deseo frustrado de independencia.",
+ "-4": "Tensiones por frustración que le han llevado a agitación, pesimismo pérdida de prestigio, inseguridad, no esperanzas.",
+ "-4-0": "Agitada tensión e incertidumbre, oportunidad perdida, tensa expectativa por lo que debe recibir, cree mas de lo real.",
+ "-4-1": "Decepciones sentimentales dan tensión, asociación sentimental con conflicto, decepcionado, depresivo, ambivalencia.",
+ "-4-2": "Tensión por la esperanza y necesidad no cubierta, desengaños, vacilación tirantez, búsqueda de futilidad como salida.",
+ "-4-3": "Tensión por frustración agitado, fracaso perturbador, se siente victima, ideas de culpabilizar.",
+ "-4-5": "Desengaño, susceptibilidad aislamiento, retraimiento, cuida y reserva critica, arrastrado a fantasías, quimeras.",
+ "-4-6": "Tensión que resulta por encubrir la ansiedad bajo capa de confianza, decepción que lo lleva a indiferencia.",
+ "-4-7": "Tensión por decepciones y vigilante autoprotección, cautelosos desconfiado. Reticente a irse con algo.",
+ "-5": "Tensión debida a la supresión de sensibilidad, actitud crítica, se recrea con todo lo agradable, fantasía.",
+ "-5-0": "Muestra impaciencia y agitación, exigente, espera mas, control de asociación, exige sinceridad, correspondencia controlada.",
+ "-5-1": "Rechaza ponerse laxo, darse por vencido, asociación sentimental poco satisfactoria, frustración lo deprime, insatisfacción.",
+ "-5-2": "Sentimiento de desprecios e incomprensiones le dan tensión, posición desagradable, juzga poco valorado, humillado sin aprecio.",
+ "-5-3": "Tensión por no alcanzar seguridad y comprensión, sistema nervioso resentido, frustrante situación necesita comprensión.",
+ "-5-4": "Desengaño lo ha llevado a gran susceptibilidad, aislamiento coartado, retraimiento, decepción sentimental recelo.",
+ "-5-6": "Tensión por no mantener relaciones firmes, en una condición deseable, necesita apoyo de pareja, perspicaz critico, sutil.",
+ "-5-7": "Restricciones molestan tensión, esfuerzo por relaciones sinceras, exige libertada para tomar decisiones, independencia.",
+ "-6": "Tensión por supresión de deseos somáticos, insuficiente consideración por las cuestiones orgánicas, exige estima, fuerte.",
+ "-6-0": "Tensión por supresión de deseos somáticos, deseo de asociarse, quiere ser amado admirado, atención y estima.",
+ "-6-1": "La insatisfacción lo han llevado a una tensión por falta de aprecio, autocontrol excesivo, necesita colaboración.",
+ "-6-2": "Tener por autodominio para ganar consideración, necesidad de asociarse situación incomoda, necesidad de estima.",
+ "-6-3": "Tensión por supresión de deseos somáticos, insuficiente consideración por las necesidades orgánicas aprecio.",
+ "-6-4": "Busca encubrir ansiedad, situación desagradable, solo e inseguro, soledad, desea aprobación y aprecio, indiferencia.",
+ "-6-5": "Se origina tensión por incapacidad de mantener relaciones, sensible, unión, nobleza, erotismo, artístico sublimado, cultura.",
+ "-6-7": "Tensiones que resultan de restricciones, libertad para seguir sus convicciones, aprovechar su oportunidad a su propio sino.",
+ "-7": "Tensión por sentimiento de esfuerzo, ser independiente, busca libertad estar libre de limitaciones busca su propio destino.",
+ "-7-0": "Susceptibilidad para estímulos externos, falta sentido a su existencia integración.",
+ "-7-1": "Insatisfacción sentimental busca independencia con tensión y ansiedad, desequilibrio, susceptibilidad, impaciencia, ansiedad.",
+ "-7-2": "Frustración derivada de restricciones inaceptables a su libertad, desea libertad, gran presión, falta fuerza a propósitos.",
+ "-7-3": "Frustración genera tensión, aprisionado en una situación desagradable, impotente de solución, quiere escapar, defensa nerviosa.",
+ "-7-4": "Tensión que resulta de decepciones, autoprotección para contrariedades, cautela para no fracasar en frustración.",
+ "-7-5": "Tensión por restricciones o limitaciones molestas, sensible, manejable, impresionable, aunque busca independencia compartida.",
+ "-7-6": "Tensiones que resultan de restricciones y limitaciones molestas, resiste presión, exige independencia y perfeccionismo.",
+ "=0": "Aaa",
+ "=0=1": "Sus asociaciones raras veces alcanzan sus expectativas, esto le lleva a desilusionarse, tiende a permanecer aislado sentimentalmente.",
+ "=0=2": "Cree que recibe menos de lo que se merece pero tendra que conformarse y sacar provecho de la situación.",
+ "=0=3": "Se siente indiferente, cercado y ansioso, quiere evitar conflicto con los demás, y tener paz.",
+ "=0=4": "Exigente en relaciones personales, trata de evitar conflicto abierto porque podria interferir con sus ideas.",
+ "=0=5": "Es egocéntrico y por lo tanto fácilmente se siente ofendido.",
+ "=0=6": "Quiere estar vinculado sentimentalmente con alquien.",
+ "=0=7": "Las circunstancias son tales que por el momento se siente forzado a hacer componendas, asi evita la pérdida de afecto.",
+ "=1": "",
+ "=1=0": "Tiene grandes exigencias sentimentales y quiere asociación íntima, pero sin profundidad sentimiento.",
+ "=1=2": "Cree que no esta recibiendo lo que se le debe, que no es comprendido ni apreciado, juzga que esta obligado a conformarse.",
+ "=1=3": "Se siente interceptado y desgraciado por las dificultades para conseguir armonía.",
+ "=1=4": "Impositivo en sus exigencias sentimentales, su deseo de independecia le impide asociación profunda.",
+ "=1=5": "Es egocéntrico y por lo tanto fácilmente se siente ofendido.",
+ "=1=6": "Inclinado a retraerse sentimentalmente, lo cual le impide asociarse con profundidad.",
+ "=1=7": "Inhibe sus sentimientos. se siente forzado a hacer componendas, lo cual le dificulta formar vinculos afectivos estables.",
+ "=2": "",
+ "=2=1": "Cree que no esta recibiendo lo que se le debe, que no es comprendido ni apreciado, juzga que esta obligado a conformarse.",
+ "=2=3": "Se siente desgraciado por las dificultades que encuentra cuando trata de hacer valer sus derechos.",
+ "=2=4": "Juzga que soporta problemas superior a lo justo, sin embargo permanece firme en sus objetivos y trata de superar dificultades.",
+ "=2=5": "Cree que recibe menos de lo que merece, siente que no hay nadie en quien pueda apoyarse.",
+ "=2=6": "Tiene la impresion que es muy poco mas lo que puede hacer sobre sus problemas y que debe sacar el mejor provecha de las cosas.",
+ "=2=7": "Las circunstancias lo estan forzando a buscar componendas, a frenarse en sus exigencias y algunas de las cosas que quiere.",
+ "=3": "",
+ "=3=0": "Esta preocupado con las dificultades, y sin humor para todo tipo de actividad. Necesita paz y tranquilidad.",
+ "=3=1": "Se siente interceptado y desgraciado por las dificultades para conseguir",
+ "=3=2": "Se siente desgraciado por las dificultades que encuentra cuando trata de hacer valer sus derechos, trata de sacar provecho de la situación.",
+ "=3=4": "Quiere ampliar su campo de actividades e insiste en que sus esperanzas e ideas son realistas.",
+ "=3=5": "Se angustia cuando sus necesidades o sus deseos son mal entendidos, cree que no tiene nadie en quien apoyarse,es egocéntrico.",
+ "=3=6": "Se siente atrapado en una situación angustiosa e incómoda, busca el modo de conseguir alivio.",
+ "=3=7": "Las circunstancias son restrictivas y le resultan un impedimento, forzándolo a abstenerse por el momento de algunos placeres.",
+ "=4": "",
+ "=4=0": "Exigente en relaciones personales, trata de evitar conflicto abierto porque podria interferir con sus ideas.",
+ "=4=1": "Impositivo en sus exigencias sentimentales, su deseo de independecia le impide asociación profunda.",
+ "=4=2": "Juzga que soporta problemas superior a lo justo, sin embargo permanece firme en sus objetivos y trata de superar dificultades.",
+ "=4=3": "Quiere ampliar su campo de actividades e insiste en que sus esperanzas e ideas son realistas.",
+ "=4=5": "Insiste en que sus esperanzas e ideas son realistas, pero necesita reafimación y ánimo, es egocéntrico.",
+ "=4=6": "Aplica normas muy estrictas para la elección de su pareja.",
+ "=4=7": "Insiste en que sus objetivos son realistas y se aferra con obstinación a ellos.",
+ "=5": "",
+ "=5=0": "Quiere estar vinculado sentimentalmente con alguien puesto se siente aislado y solo, es egocéntrico.",
+ "=5=1": "Se siente aislado y solo pero es muy reservado para llegar a formar vínculos,es egocéntrico.",
+ "=5=2": "Cree que recibe menos de lo que merece, siente que no hay nadie en quien pueda apoyarse.",
+ "=5=3": "Se angustia cuando sus necesidades o sus deseos son mal entendidos, cree que no tiene nadie en quien apoyarse,es egocéntrico.",
+ "=5=4": "Insiste en que sus esperanzas e ideas son realistas, pero necesita reafimación y ánimo, es egocéntrico.",
+ "=5=6": "Es egocéntrico, por lo tanto se siente facilmente ofendido, tiende a ser frío sentimentalmente.",
+ "=5=7": "Las condiciones son tales que no se atreven a vincularse íntimamente con alguien sin mantener ciertas reservas mentales.",
+ "=6": "",
+ "=6=0": "Quiere estar vinculado sentimentalmente con alquien, trata de evitar conflictos.",
+ "=6=1": "Inclinado a retraerse sentimentalmente, lo cual le impide asociarse con profundidad.",
+ "=6=2": "Tiene la impresion que es muy poco mas lo que puede hacer sobre sus problemas y que debe sacar el mejor provecha de las cosas.",
+ "=6=3": "Se siente atrapado en una situación angustiosa e incómoda, busca el modo de conseguir alivio.",
+ "=6=4": "Aplica normas muy estrictas para la elección de su pareja.",
+ "=6=5": "Es egocéntrico, por lo tanto se siente facilmente ofendido, tiende a ser frío sentimentalmente.",
+ "=6=7": "Las circunstancias lo están forzando a buscar componendas y abstenerse por el momento de algunos placeres.",
+ "=7": "",
+ "=7=0": "Las circunstancias son tales que por el momento se siente forzado a hacer componendas, asi evita la pérdida de afecto.",
+ "=7=1": "Inhibe sus sentimientos. se siente forzado a hacer componendas, lo cual le dificulta formar vinculos afectivos estables.",
+ "=7=2": "Las circunstancias lo estan forzando a buscar componendas, a frenarse en sus exigencias y algunas de las cosas que quiere.",
+ "=7=3": "Las circunstancias son restrictivas y le resultan un impedimento, forzándolo a abstenerse por el momento de algunos placeres.",
+ "=7=4": "Insiste en que sus objetivos son realistas y se aferra con obstinación a ellos.",
+ "=7=5": "Las condiciones son tales que no se atreven a vincularse íntimamente con alguien sin mantener ciertas reservas mentales.",
+ "=7=6": "Las circunstancias lo están forzando a buscar componendas y abstenerse por el momento de algunos placeres."
+	}
+	
+	return codigos[c];
+}
+								
+function color_match(colors,positions,chosen){
+	for(i = 0; i < colors.length ; i++){
+		for(j = 0; j < positions.length ; j++){
+			if((positions[j] in chosen) && (chosen[positions[j]] == colors[i] )){
+				index = colors.indexOf(colors[i]);
+				if (index > -1) {
+					colors.splice(index, 1);
+				}
+			}	
+		}
+	}
+
+	/*foreach(colors as key => color){
+		foreach(positions as pos){
+			if(isset(chosen[pos]) && (chosen[pos] == color )){
+				unset(colors[key]);
+			}
+		}
+	}*/
+	if(colors == "")return true;
+	return false;
+}
+
+
+//---- LOCAL DATABASE ----------------------
+function dbtotal(){
+    db.transaction(function(tx) {
+		freeze_open();
+		tx.executeSql("SELECT count(*) as total from test", [], function(tx, res) {
+			$("#popmsg").append("Test total: "+ res.rows.item(0).total+"<br>"); 
+		});
+
+		tx.executeSql("SELECT count(*) as total from tablon", [], function(tx, res) {
+			$("#popmsg").append("Tablon total: "+ res.rows.item(0).total+"<br>"); 
+		});
+
+    });
+	return false;
+}
+
+
+function read_depas(id){
+	//$("#tests").html();
+	//start loading...
+    db.transaction(function(tx) {
+		tx.executeSql("SELECT id,codigo,nombre from depas where codigo = " + id, [], function(tx, res) {
+			for(i = 0; i < res.rows.length; i++ ){
+				html += "<option value='" + res.rows.item(i).codigo + "'>" + res.rows.item(i).nombre + "</option>";
+			}
+			$("#select").html(html);
+		});
+    });
+	//end loading...
+	//$("#select").selectmenu("refresh");
+}
+
+function create_depas(){
+    db.transaction(function(tx) {
+	      tx.executeSql('DROP TABLE IF EXISTS depas');
+	      tx.executeSql('CREATE TABLE IF NOT EXISTS depas (id integer primary key, nombre text, codigo integer)');
+		  sql = "INSERT INTO depas (codigo, nombre) VALUES (?,?)";	
+	      tx.executeSql(sql, [1, "Lambayeque"]);
+	      tx.executeSql(sql, [1, "Chiclayo"]);
+	      tx.executeSql(sql, [2, "Piura"]);
+	      tx.executeSql(sql, [2, "Juliaca"]);
+	      tx.executeSql(sql, [3, "Motupe"]);
+	      tx.executeSql(sql, [3, "Madrid"]);
+	      tx.executeSql(sql, [4, "Medellin"]);
+	      tx.executeSql(sql, [4, "Buenos Aires"]);
+		  localStorage.setItem("depas",1);
+    });
+}
+
+function create_panels(){
+	html = "";
+	html += '	<div data-role="panel" id="rightpanel1" data-position="right" data-display="overlay" data-theme="a" xstyle="visibility: hidden;" >';
+	html += '       <a href="#demo-links" data-rel="close" class="ui-btn ui-shadow ui-corner-all ui-btn-a ui-icon-delete ui-btn-icon-left ">Ocultar Menu</a><br><br>';
+	html += '       <a href="#" onclick="return resetpagevars();" id="botonvaciar" class="ui-btn ui-shadow ui-corner-all ui-btn-a ui-icon-delete ui-btn-icon-left bline">Vaciar el formulario de esta página</a><br><br>';
+	html += '       <a href="#"  onclick="return init_home();"  class="ui-btn ui-shadow ui-corner-all ui-btn-a ui-icon-action ui-btn-icon-left ">Ir al menu principal</a><br ><br>';
+	html += '       <a href="#" onclick="return logout();" class="ui-btn ui-shadow ui-corner-all ui-btn-a ui-icon-delete ui-btn-icon-left ">Cerrar Sesión</a>';
+	html += '	<div style="color:#CACACA;">Ultima version: <!--ultfecha--></div>';
+	html += '</div>';
+	$("body").append(html);
+}
+
+</script>
+</head>
+<style>
+body{background:url('images/wallpaper-2469.jpg');background-size: 100% 100%; }
+.ui-page {
+    background: transparent;
+}
+.ui-page .ui-content{
+    background: transparent;
+}
+.bw {border: 2px solid white !important;}
+.ui-page .hpage1{xbackground:url('images/logo_ministerio_educacion.png') no-repeat;background-color:#58585a;background-position:0px 0px}
+.cgreen{color:green}
+.cred{color:red}
+#login_error{color:red}
+.textgroup{	padding-top:.22em;	padding-bottom:.22em;}
+.ts1{width:100%}
+.ts1 td{border-bottom:1px solid #ddd}
+.ts1 th{border-bottom:1px solid #ddd;text-align:left}
+.ts1 tbody tr td .ui-field-contain{margin:0px}
+.ts1 tbody tr td ui-controlgroup, .ts1 tbody tr td  fieldset.ui-controlgroup { margin: 0; }
+.cs1{background:#ddd;border-radius:10px;padding:5px;font-weight:bold}
+
+.message{background-color:#E1EBF4;background-image:url('images/notify_notice.png');background-repeat:no-repeat;background-position:4px 6px;border:1px solid #C4D1D9 ;padding:5px;padding-left:25px;margin-left:0px;margin-right:0px;margin-bottom:3px;border-radius:6px }
+.box_notice{background-color:#E1EBF4;background-image:url('images/notify_notice.png');background-repeat:no-repeat;background-position:4px 6px;border:1px solid #C4D1D9 ;padding:5px;padding-left:25px;margin-left:0px;margin-right:0px;margin-bottom:3px;border-radius:6px }
+.box_error{background-color:#F8E3E0;background-image:url('images/notify_error.png');background-repeat:no-repeat;background-position:4px 6px;border:1px solid #E2C6C5 ;padding:5px;padding-left:25px;margin-left:0px;margin-right:0px;margin-bottom:3px;border-radius:6px  }
+.box_success{background-color:#E5EBC5;background-image:url('images/notify_success.png');background-repeat:no-repeat;background-position:4px 6px;border:1px solid #D4DAB6 ;padding:5px;padding-left:25px;margin-left:0px;margin-right:0px;margin-bottom:3px; border-radius:6px }
+.box_warning{background-color:#FAF3C5;background-image:url('images/notify_warning.png');background-repeat:no-repeat;background-position:4px 6px;border:1px solid #E4DBB0 ;padding:5px;padding-left:25px;margin-left:0px;margin-right:0px;margin-bottom:3px;border-radius:6px  }
+
+.bline{white-space: normal !important; }
+
+.bc .ui-btn-icon-left{ padding-right: 0em !important }
+.bc .ui-btn-icon-right{ padding-left: 0em !important }
+</style>
+<style>
+.fcolor0, .fcolor1, .fcolor2,
+.fcolor3, .fcolor4, .fcolor5,
+.fcolor6, .fcolor7, .fcolor8,
+.fcolor9
+{;width: 100%;height:100%;cursor:pointer;border:1px solid #ddd; }
+
+.boxframe{float:left;width: 24%;height:31%;margin-left:5px;margin-top:5px;}
+
+
+.fcolor0{background:#F0EB6D}
+.fcolor1{background:#0B27A1}
+.fcolor2{background:#025C43}
+.fcolor3{background:#D93B0B}
+.fcolor4{background:#F6D703}
+.fcolor5{background:#720159}
+.fcolor6{background:#903F00}
+.fcolor7{background:#000000}
+.fcolor8{background:#65676C}
+.fcolor9{background:#FFFFFF}
+
+#box_container{xbackground:#E3F1F4;height:450px}
+
+.hpage1 .ui-btn,.hpage1 label.ui-btn {border-width: 0px;}
+</style>
+<script type="text/javascript">
+var orden = [];
+var suma = 0;
+
+function fade_box(id){
+	//$(o).parent().fadeOut();
+	suma = suma + 1;
+	//orden = orden + ',' + id;
+	orden.push(id);
+	//new Effect.Fade('box' + id,  { duration:1});
+	$('#box' + id).fadeOut();
+	//$('colors').value = orden;
+
+	if(suma == 10)changepage("#results");
+	return false;
+	
+}
+
+function check_colors(){
+	if(suma == 10){
+		return true;
+	}
+	if(suma==9){
+		alert("Falta seleccionar 1 color");
+	} else {
+		alert("Falta seleccionar " + (10 - suma) + " colores");
+	}
+	
+	return false;
+}
+</script>
+
+<body>
+	<!--div data-role="page" id="jqm-home" >
+		<div data-role="header" class="hpage1"  data-theme="b">
+		<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Mood Tester</h1>
+		<a href="#purchase" data-rel="popup"  data-position-to="window" data-transition="pop"  class="ui-btn ui-icon-info ui-btn-icon-notext ui-corner-all">x</a>
+
+		</div>
+		<div data-role="content">
+			<div class="right">
+				<div id="espere" class="box_notice">Procesando datos, espere un momento por favor...</div>
+
+				<ul data-role="listview" data-inset="true">
+				  <li>
+					<a href="#test" data-transition="slide">
+					   <h3>Iniciar Test</h3>
+					   <div></div>
+					</a>
+				  </li>
+				</ul>
+
+			</div>
+		</div>
+	</div-->
+
+	<div data-role="page" id="jqm-home" >
+		<div data-role="header" class="hpage1"  data-theme="b">
+		<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Mood Tester</h1>
+		<a href="#purchase" data-rel="popup"  data-position-to="window" data-transition="pop"  class="ui-btn ui-icon-info ui-btn-icon-notext ui-corner-all">x</a>
+
+		</div>
+		<div data-role="content">
+			<div id="box_container">
+			</div>
+		</div>
+	</div>
+
+	<div data-role="page" id="results" >
+		<div data-role="header" class="hpage1"  data-theme="b">
+		<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Mood Tester</h1>
+		<a href="#purchase" data-rel="popup"  data-position-to="window" data-transition="pop"  class="ui-btn ui-icon-info ui-btn-icon-notext ui-corner-all">x</a>
+
+		</div>
+		<div data-role="content" class="rcontent">
+
+				<!--b>. Caracter&iacute;stica General:</b>
+				<div style="margin-left:10px" id="r_general"></div>
+
+				<b>. Problema Actual:</b>
+				<div style="margin-left:10px" id="r_problema"></div>
+
+				<b>. Orientado a:</b>
+				<div style="margin-left:10px" id="r_orientado"></div>
+
+				<b>. Situaci&oacute;n Presente:</b>
+				<div style="margin-left:10px" id="r_presente"></div>
+
+				<b>. Caracter&iacute;sticas Coartadas:</b>
+				<div style="margin-left:10px" id="r_coartada"></div>
+
+				<b>. Foco de tensi&oacute;n:</b>
+				<div style="margin-left:10px" id="r_tension"></div>
+
+				<b>. Ajuste al entorno:</b>
+				<div style="margin-left:10px" id="r_entorno"></div-->
+		</div>
+	</div>
+
+
+
+
+	<div data-role="page" id="login">
+		<div data-role="header" class="hpage1" data-theme="b">
+			<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Mood Tester</h1>
+		</div>
+
+		<div data-role="content">
+			<div class="ui-corner-all custom-corners">
+				<div class="ui-bar ui-bar-a">
+					<h3>Iniciar Sesión </h3>
+				</div>
+				<div class="ui-body ui-body-a">
+					<p id="login_error"></p>
+
+					<p>Nombre de Usuario </p>
+					<label for="username" class="ui-hidden-accessible">Text Input:</label>
+					<input type="text" name="username" id="username" value="" />
+					<p>Contraseña</p>
+					<label for="password" class="ui-hidden-accessible">Text Input:</label>
+					<input type="password" name="password" id="password" value="" />
+
+				</div>
+			</div>
+			<a href="#" onclick="return confirm_login();" class="ui-btn ui-icon-carat-r ui-btn-icon-right">Continuar</a>
+		</div>
+	</div>
+
+
+	<!--forms-->
+	<div data-role="popup" id="loadbox" data-overlay-theme="b" data-theme="b" data-dismissible="false" xstyle="max-width:400px;">
+		<!--div data-role="header" data-theme="a"><h1>Delete Page?</h1></div-->
+		<div role="main" class="ui-content">
+			<!--div class="ui-loader ui-loader-verbose "><span class="ui-icon-loading"></span></div-->
+			<p id="popmsg">Procesando datos...</p>
+		</div>
+	</div>
+
+	<div data-role="popup" id="purchase" data-theme="a" data-overlay-theme="b" class="ui-content" style="max-width:340px; padding-bottom:2em;">
+		<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+		<h3>Como funciona?</h3>
+
+		<p>El test de Lüscher, también conocido como test de los colores es una prueba de tipo proyectivo, es decir, una prueba que trata de conocer
+ nuestra personalidad a través de la elección de un color. Este test fue diseñado en 1948 por Max Lüscher, y aunque en la actualidad muchos psicólogos 
+opinan que carece de valor diagnóstico, es frecuente encontrarlo en pruebas de selección laboral.  Algunas de las características que persigue aplicadas 
+al ámbito laboral son conocer el modelo de afrontamiento del estrés, o el tipo de personalidad.</p>
+
+		<a href="#" data-rel="back" class="ui-shadow ui-btn ui-corner-all ui-btn-inline ui-mini">Cerrar</a>
+	</div>
+
+</body>
+</html>
