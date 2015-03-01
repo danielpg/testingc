@@ -14,10 +14,14 @@ var current_enc;
 var form_refresh = 0;
 var ultimate_page = 0;
 var desktop = 1;
+
+var orden = [];
+var suma = 0;
+var tries = 0;
 </script>
 <script>
-if(localStorage.getItem("db_version") == null){
-	localStorage.setItem("db_version",7000);
+if(localStorage.getItem("first_time") == null){
+	localStorage.setItem("first_time",1);
 }
 
 if(desktop == 0){
@@ -46,16 +50,22 @@ function onDeviceReady() {
 		if(pageId == "jqm-home"){
 			draw_cards();
 			suma = 0;
+			tries = 0;
 			orden = [];
 		}
 		if(pageId == "results"){
-			process_results();
+			if(orden == ""){
+				changepage("#jqm-home");
+			} else {
+				process_results();
+			}
 		}
 	});
 	/*$(document).on( "pagebeforechange", function( event ) { 
 		//$.mobile.loading("show");
 	});*/
 	$("#loadbox").popup();
+	$("#calert").popup();
 	$("#purchase").popup();
 	create_panels();
 	$( "body>[data-role='panel']" ).panel();
@@ -921,6 +931,33 @@ function create_panels(){
 	$("body").append(html);
 }
 
+function fade_box(id){
+	//$(o).parent().fadeOut();
+	suma = suma + 1;
+	//orden = orden + ',' + id;
+	orden.push(id);
+	//new Effect.Fade('box' + id,  { duration:1});
+	$('#box' + id).fadeOut();
+	//$('colors').value = orden;
+
+	if(suma == 10){
+		if(tries == 0){
+			draw_cards();
+			//$("#alertmsg").html("Seleccione una vez las cartas.");
+			$("#calert").popup("open");
+			tries = 1;
+			suma = 0;
+			orden = [];
+		} else {
+			tries = 0;
+			suma = 0;
+			changepage("#results");
+		}
+	}
+	return false;
+	
+}
+
 </script>
 </head>
 <style>
@@ -980,42 +1017,12 @@ body{background:url('images/wallpaper-2469.jpg');background-size: 100% 100%; }
 
 .hpage1 .ui-btn,.hpage1 label.ui-btn {border-width: 0px;}
 </style>
-<script type="text/javascript">
-var orden = [];
-var suma = 0;
 
-function fade_box(id){
-	//$(o).parent().fadeOut();
-	suma = suma + 1;
-	//orden = orden + ',' + id;
-	orden.push(id);
-	//new Effect.Fade('box' + id,  { duration:1});
-	$('#box' + id).fadeOut();
-	//$('colors').value = orden;
-
-	if(suma == 10)changepage("#results");
-	return false;
-	
-}
-
-function check_colors(){
-	if(suma == 10){
-		return true;
-	}
-	if(suma==9){
-		alert("Falta seleccionar 1 color");
-	} else {
-		alert("Falta seleccionar " + (10 - suma) + " colores");
-	}
-	
-	return false;
-}
-</script>
 
 <body>
 	<!--div data-role="page" id="jqm-home" >
 		<div data-role="header" class="hpage1"  data-theme="b">
-		<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Mood Tester</h1>
+		<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Tu mente en colores</h1>
 		<a href="#purchase" data-rel="popup"  data-position-to="window" data-transition="pop"  class="ui-btn ui-icon-info ui-btn-icon-notext ui-corner-all">x</a>
 
 		</div>
@@ -1038,11 +1045,14 @@ function check_colors(){
 
 	<div data-role="page" id="jqm-home" >
 		<div data-role="header" class="hpage1"  data-theme="b">
-		<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Mood Tester</h1>
+		<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Tu mente en colores</h1>
 		<a href="#purchase" data-rel="popup"  data-position-to="window" data-transition="pop"  class="ui-btn ui-icon-info ui-btn-icon-notext ui-corner-all">x</a>
 
 		</div>
 		<div data-role="content">
+			<div class="box_notice" id="finst">Selecciona cada color por orden de preferencia.
+No pienses mucho al seleccionarlos, simplemente selecciona los colores que te llamen la atención.
+			</div>
 			<div id="box_container">
 			</div>
 		</div>
@@ -1050,7 +1060,7 @@ function check_colors(){
 
 	<div data-role="page" id="results" >
 		<div data-role="header" class="hpage1"  data-theme="b">
-		<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Mood Tester</h1>
+		<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Tu mente en colores</h1>
 		<a href="#purchase" data-rel="popup"  data-position-to="window" data-transition="pop"  class="ui-btn ui-icon-info ui-btn-icon-notext ui-corner-all">x</a>
 
 		</div>
@@ -1084,7 +1094,7 @@ function check_colors(){
 
 	<div data-role="page" id="login">
 		<div data-role="header" class="hpage1" data-theme="b">
-			<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Mood Tester</h1>
+			<a href="#jqm-home" data-transition="fade" data-icon="home" data-iconpos="notext">Inicio</a><h1 role="heading">Tu mente en colores</h1>
 		</div>
 
 		<div data-role="content">
@@ -1118,6 +1128,12 @@ function check_colors(){
 		</div>
 	</div>
 
+	<div data-role="popup" id="calert" data-theme="a" data-overlay-theme="b" class="ui-content" style="max-width:340px; padding-bottom:2em;">
+		<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+		<p id="alertmsg">Vuelve a seleccionar los colores por orden de preferencia, NO trates conscientemente de recordar o 
+	repetir la selección de colores que  hiciste antes, tampoco hagas  esfuerzos por no recordarla. 
+	Procura fijarte exclusivamente en los colores como si fuera la primera vez que los estas viendo.</p>
+
 	<div data-role="popup" id="purchase" data-theme="a" data-overlay-theme="b" class="ui-content" style="max-width:340px; padding-bottom:2em;">
 		<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
 		<h3>Como funciona?</h3>
@@ -1127,7 +1143,7 @@ function check_colors(){
 opinan que carece de valor diagnóstico, es frecuente encontrarlo en pruebas de selección laboral.  Algunas de las características que persigue aplicadas 
 al ámbito laboral son conocer el modelo de afrontamiento del estrés, o el tipo de personalidad.</p>
 
-		<a href="#" data-rel="back" class="ui-shadow ui-btn ui-corner-all ui-btn-inline ui-mini">Cerrar</a>
+		<!--a href="#" data-rel="back" class="ui-shadow ui-btn ui-corner-all ui-btn-inline ui-mini">Cerrar</a-->
 	</div>
 
 </body>
