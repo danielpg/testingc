@@ -19,8 +19,10 @@
 
 	<preference name="orientation" value="portrait" />
 	<preference name="fullscreen" value="true" />
+	<preference name="permissions" value="none"/>
 
 	<gap:plugin name="org.apache.cordova.device" version="0.2.12"  />
+
 	<gap:splash src="splash.png" />
 	<icon src="icon.png" />
 

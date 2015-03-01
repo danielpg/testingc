@@ -20,9 +20,6 @@ var suma = 0;
 var tries = 0;
 </script>
 <script>
-if(localStorage.getItem("first_time") == null){
-	localStorage.setItem("first_time",1);
-}
 
 if(desktop == 0){
 	document.addEventListener("deviceready", onDeviceReady, false);
@@ -30,7 +27,13 @@ if(desktop == 0){
 	$(function(){ onDeviceReady(); });
 }
 
+$(window).on("resize orientationchange", function(){
+    ScaleContentToDevice();
+	//$.mobile.resetActivePageHeight();
+});
+
 function onDeviceReady() {
+  	ScaleContentToDevice();
 	//$.mobile.page.prototype.options.keepNative = "select, input, textarea";
 	$("#espere").hide();
 	$("#espereload").hide();
@@ -46,6 +49,7 @@ function onDeviceReady() {
 			suma = 0;
 			orden = [];
 	$(document).on('pagecontainershow', function(e, ui) {
+	    ScaleContentToDevice(); 
 		pageId = $('body').pagecontainer('getActivePage').prop('id');
 		if(pageId == "jqm-home"){
 			draw_cards();
@@ -69,22 +73,14 @@ function onDeviceReady() {
 	$("#purchase").popup();
 	create_panels();
 	$( "body>[data-role='panel']" ).panel();
+
+	if(localStorage.getItem("first_time") == null){
+		localStorage.setItem("first_time",1);
+		$("#purchase").popup("open");
+	}
+
 	//$( "#encuesta1" ).on( "swipeleft", swipeleftHandler );
  	//$( "#encuesta1" ).on( "swiperight", swiperightHandler );
-	login_status = localStorage.getItem("login_status");	
-	if((login_status == null) || (login_status == 0)){
-		changepage("#login");
-	}
-	if(desktop == 0){
-		/*db = window.sqlitePlugin.openDatabase("Database", "1.0", "Demo", -1);
-		if(localStorage.getItem("localdata") == null){
-			create_tables_data();
-		} else {
-			if(localStorage.getItem("localdata") < 3){
-				create_tables_data();
-			}
-		}*/
-	}
 }
 
 function nextpage_encuesta( i ){
@@ -301,6 +297,13 @@ function shuffle(array) {
   }
 
   return array;
+}
+
+function ScaleContentToDevice(){
+    scroll(0, 0);
+	//var content = $.mobile.getScreenHeight() - $(".ui-header").outerHeight() - $(".ui-footer").outerHeight() - $(".ui-content").outerHeight() + $(".ui-content").height();
+    var content = $.mobile.getScreenHeight() - $(".ui-header").outerHeight() - $(".ui-content").outerHeight() + $(".ui-content").height();
+    $(".ui-page .ui-content").height(content);
 }
 //----- THIS APP UTILS ----------------------------------
 
@@ -1013,7 +1016,7 @@ body{background:url('images/wallpaper-2469.jpg');background-size: 100% 100%; }
 .fcolor8{background:#65676C}
 .fcolor9{background:#FFFFFF}
 
-#box_container{xbackground:#E3F1F4;height:450px}
+#box_container{xbackground:#E3F1F4;xheight:450px}
 
 .hpage1 .ui-btn,.hpage1 label.ui-btn {border-width: 0px;}
 </style>
@@ -1050,8 +1053,7 @@ body{background:url('images/wallpaper-2469.jpg');background-size: 100% 100%; }
 
 		</div>
 		<div data-role="content">
-			<div class="box_notice" id="finst">Selecciona cada color por orden de preferencia.
-No pienses mucho al seleccionarlos, simplemente selecciona los colores que te llamen la atención.
+			<div class="box_notice" id="finst">Selecciona cada color por orden de preferencia, no piense mucho al seleccionarlos, simplemente seleccione los colores que le llamen la atención.
 			</div>
 			<div id="box_container">
 			</div>
@@ -1136,12 +1138,15 @@ No pienses mucho al seleccionarlos, simplemente selecciona los colores que te ll
 
 	<div data-role="popup" id="purchase" data-theme="a" data-overlay-theme="b" class="ui-content" style="max-width:340px; padding-bottom:2em;">
 		<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
-		<h3>Como funciona?</h3>
+		<h3>EL TEST DE LOS COLORES</h3>
 
-		<p>El test de Lüscher, también conocido como test de los colores es una prueba de tipo proyectivo, es decir, una prueba que trata de conocer
- nuestra personalidad a través de la elección de un color. Este test fue diseñado en 1948 por Max Lüscher, y aunque en la actualidad muchos psicólogos 
-opinan que carece de valor diagnóstico, es frecuente encontrarlo en pruebas de selección laboral.  Algunas de las características que persigue aplicadas 
-al ámbito laboral son conocer el modelo de afrontamiento del estrés, o el tipo de personalidad.</p>
+		<p>El test de los colores de Lüscher, se utiliza para el análisis de la personalidad y la solución de conflictos y puede describir el estado 
+interior y anímico de una persona.<br>
+
+A traves de una formula desarrollada por Max Lüscher, la elección de colores de una persona puede determinar la capacidad de rendimiento, la imagen de si mismo, la relación de pareja y las expectativas de futuro;
+ ayudando a reconocer las causas inconscientes de los conflictos para encontrar el equilibrio.
+
+</p>
 
 		<!--a href="#" data-rel="back" class="ui-shadow ui-btn ui-corner-all ui-btn-inline ui-mini">Cerrar</a-->
 	</div>
